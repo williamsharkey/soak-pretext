@@ -545,6 +545,7 @@ class FloatingOrnaments {
     this.dragState = null;
     this.dragProxy = null;
     this.lastTime = performance.now();
+    this.paused = false;
     this.installPalette();
     this.installGlobalListeners();
     this.seed();
@@ -565,6 +566,40 @@ class FloatingOrnaments {
 
   getStageById(stageId) {
     return this.stages.find((entry) => entry.id === stageId) || null;
+  }
+
+  setPaused(paused) {
+    this.paused = paused;
+  }
+
+  clear(stageId = null) {
+    const remaining = [];
+    for (const floater of this.floaters) {
+      const keep = stageId && floater.stageId !== stageId;
+      if (keep) {
+        remaining.push(floater);
+        continue;
+      }
+
+      this.getStageById(floater.stageId)?.scene?.removeFloaterObstacle(floater.id);
+      floater.element.remove();
+    }
+
+    this.floaters = remaining;
+  }
+
+  getFloaterSnapshot(stageId = null) {
+    return this.floaters
+      .filter((floater) => !stageId || floater.stageId === stageId)
+      .map((floater) => ({
+        id: floater.id,
+        kind: floater.kind,
+        stageId: floater.stageId,
+        x: floater.renderX ?? floater.x,
+        y: floater.renderY ?? floater.y,
+        vx: floater.vx,
+        vy: floater.vy,
+      }));
   }
 
   createDragProxy(kind) {
@@ -716,6 +751,7 @@ class FloatingOrnaments {
     }
 
     stage.scene.updateFloaterObstacle(floater);
+    this.placeFloater(floater);
     floater.lastObstacleSync = { x: floater.x, y: floater.y, stageId: floater.stageId };
   }
 
@@ -795,6 +831,11 @@ class FloatingOrnaments {
   tick(time) {
     const delta = Math.min(0.032, (time - this.lastTime) / 1000 || 0.016);
     this.lastTime = time;
+
+    if (this.paused) {
+      requestAnimationFrame((nextTime) => this.tick(nextTime));
+      return;
+    }
 
     for (const floater of this.floaters) {
       if (floater.dragging) {
@@ -940,3 +981,67 @@ document.getElementById("skylineToggle").addEventListener("click", (event) => {
 document.getElementById("paperJolt").addEventListener("click", () => {
   floaters.nudgeAll("paper");
 });
+
+window.__soakDemo = {
+  adScene,
+  paperScene,
+  floaters,
+  pauseMotion() {
+    floaters.setPaused(true);
+  },
+  resumeMotion() {
+    floaters.setPaused(false);
+  },
+  clearFloaters(stageId = null) {
+    floaters.clear(stageId);
+  },
+  getAnchorResults(sceneId) {
+    const scene = sceneId === "paper" ? paperScene : adScene;
+    return Array.from(scene.anchorState.entries()).map(([id, state]) => ({
+      id,
+      unit: state.result.unit,
+      top: state.result.top,
+      height: state.height,
+      enabled: state.config.enabled,
+      targetUnit: state.config.targetUnit,
+    }));
+  },
+  getWordRects(sceneId, words) {
+    const flow = sceneId === "paper" ? paperScene.flow : adScene.flow;
+    return words.map((target) => {
+      const token = Array.from(flow.querySelectorAll(".word-token")).find(
+        (node) => node.textContent === target,
+      );
+      if (!token) {
+        return { word: target, found: false };
+      }
+
+      const rect = token.getBoundingClientRect();
+      return {
+        word: target,
+        found: true,
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+  },
+  getFloaterSnapshot(stageId = null) {
+    return floaters.getFloaterSnapshot(stageId);
+  },
+  getObstacleSnapshot(sceneId) {
+    const scene = sceneId === "paper" ? paperScene : adScene;
+    return Array.from(scene.floaterObstacles.entries()).map(([id, obstacle]) => {
+      const rect = obstacle.getBoundingClientRect();
+      return {
+        id,
+        kind: Array.from(obstacle.classList).find((token) => token.startsWith("flow-obstacle--")) || "",
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+  },
+};

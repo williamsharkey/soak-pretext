@@ -24,11 +24,29 @@ python3 -m http.server 4173
 
 Then visit [http://localhost:4173](http://localhost:4173).
 
+## Tests
+
+The repo includes headless interactive tests that verify:
+
+- anchor alignment in the ad and paper scenes
+- column selector behavior and skyline overlap
+- drag-and-drop insertion moving nearby words out of the way
+- visible floater alignment with its in-flow avoidance shape
+- paper jolt behavior preserving later page anchors
+
+Run them with:
+
+```bash
+npm install
+npm test
+```
+
 ## Files
 
 - [index.html](./index.html): page structure and demo controls
 - [styles.css](./styles.css): editorial styling, paper styling, skyline, and motion surfaces
 - [script.js](./script.js): soak solver, draggable floaters, and scene wiring
+- [test/interactive.test.mjs](./test/interactive.test.mjs): headless browser coverage for the main interactions
 
 ## Notes
 
