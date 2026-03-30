@@ -6,7 +6,7 @@ Interactive demo for a `pretext`-style text layout idea where visible soak eleme
 
 - A responsive editorial scene with a `1 / 2 / 3 / 4` column selector.
 - Soak items that grow or shrink so selected words open columns 2, 3, and 4.
-- A drag-and-drop motion palette for stars, moons, sparks, and a hammer.
+- A drag-and-drop motion palette for stars, moons, sparks, and a hammer, with in-flow avoidance shapes so the text moves out of their way.
 - A moving city silhouette across the bottom of the ad scene.
 - A second scene that treats three paper-like pages as one shared flow and soaks page starts for `Lemma II.` and `Lemma III.`
 

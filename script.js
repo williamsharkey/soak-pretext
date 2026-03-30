@@ -104,8 +104,13 @@ class SoakScene {
     this.unitLabel = config.unitLabel;
     this.anchorConfigs = config.anchors.map((anchor) => ({ ...anchor }));
     this.anchorState = new Map();
+    this.tokens = [];
+    this.floaterObstacles = new Map();
     this.baseHeight = config.baseHeight || 16;
     this.maxHeight = config.maxHeight || 1200;
+    this.lastSolveAt = 0;
+    this.solveQueued = false;
+    this.solveTimer = 0;
     this.render();
     this.renderControls();
     this.solve();
@@ -132,6 +137,8 @@ class SoakScene {
     this.flow.innerHTML = "";
     this.flow.style.setProperty("--unit-count", String(this.unitCount));
     this.anchorState.clear();
+    this.tokens = [];
+    this.floaterObstacles.clear();
 
     for (const paragraph of this.paragraphs) {
       const node = document.createElement("div");
@@ -164,6 +171,7 @@ class SoakScene {
           token.dataset.anchorId = paragraph.anchorId;
           token.textContent = part;
           node.append(token);
+          this.tokens.push(token);
 
           this.anchorState.set(paragraph.anchorId, {
             config: anchorConfig,
@@ -182,6 +190,7 @@ class SoakScene {
         token.className = "word-token";
         token.textContent = part;
         node.append(token);
+        this.tokens.push(token);
       }
 
       this.flow.append(node);
@@ -242,6 +251,138 @@ class SoakScene {
   getUnitWidth() {
     const gap = this.getGap();
     return (this.flow.clientWidth - gap * (this.unitCount - 1)) / this.unitCount;
+  }
+
+  scheduleSolve() {
+    if (this.solveQueued) {
+      return;
+    }
+
+    const now = performance.now();
+    const wait = Math.max(0, 100 - (now - this.lastSolveAt));
+    this.solveQueued = true;
+
+    const run = () => {
+      this.solveQueued = false;
+      this.solveTimer = 0;
+      this.solve();
+    };
+
+    if (wait > 0) {
+      this.solveTimer = window.setTimeout(run, wait);
+      return;
+    }
+
+    requestAnimationFrame(run);
+  }
+
+  getFloaterCenter(floater) {
+    return {
+      x: floater.bounds.left + floater.x + floater.element.offsetWidth / 2,
+      y: floater.bounds.top + floater.y + floater.element.offsetHeight / 2,
+    };
+  }
+
+  getUnitIndexForPoint(clientX) {
+    const flowRect = this.flow.getBoundingClientRect();
+    const width = this.getUnitWidth();
+    const gap = this.getGap();
+    return Math.max(1, Math.floor((clientX - flowRect.left) / (width + gap)) + 1);
+  }
+
+  getObstacleSide(floaterCenterX, targetUnit) {
+    const flowRect = this.flow.getBoundingClientRect();
+    const width = this.getUnitWidth();
+    const gap = this.getGap();
+    const unitLeft = flowRect.left + (targetUnit - 1) * (width + gap);
+    return floaterCenterX < unitLeft + width / 2 ? "left" : "right";
+  }
+
+  findNearestToken(floater) {
+    const center = this.getFloaterCenter(floater);
+    const targetUnit = this.getUnitIndexForPoint(center.x);
+    let bestToken = null;
+    let bestUnit = targetUnit;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (const token of this.tokens) {
+      const rect = token.getBoundingClientRect();
+      if (!rect.width && !rect.height) {
+        continue;
+      }
+
+      const tokenX = rect.left + Math.min(rect.width, 20) / 2;
+      const tokenY = rect.top + rect.height / 2;
+      const tokenUnit = this.getUnitIndexForPoint(tokenX);
+      const score =
+        Math.abs(tokenUnit - targetUnit) * 420 +
+        Math.abs(tokenX - center.x) * 0.55 +
+        Math.abs(tokenY - center.y) * 1.2;
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestToken = token;
+        bestUnit = tokenUnit;
+      }
+    }
+
+    return bestToken
+      ? {
+          token: bestToken,
+          unit: bestUnit,
+          center,
+          tokenRect: bestToken.getBoundingClientRect(),
+        }
+      : null;
+  }
+
+  updateFloaterObstacle(floater) {
+    const match = this.findNearestToken(floater);
+    if (!match) {
+      return;
+    }
+
+    let obstacle = this.floaterObstacles.get(floater.id);
+    if (!obstacle) {
+      obstacle = document.createElement("span");
+      this.floaterObstacles.set(floater.id, obstacle);
+    }
+
+    const size = Math.round(FLOATER_KINDS[floater.kind].size * 1.06);
+    const side = this.getObstacleSide(match.center.x, match.unit);
+    const tokenCenterY = match.tokenRect.top + match.tokenRect.height / 2;
+    const verticalOffset = clamp(match.center.y - tokenCenterY, -size * 0.42, size * 0.42);
+    const signature = `${side}:${Math.round(verticalOffset / 6)}:${match.token.textContent}`;
+    const movedToNewTarget = obstacle.parentNode !== match.token.parentNode || obstacle.nextSibling !== match.token;
+    const layoutChanged = obstacle.dataset.signature !== signature;
+
+    obstacle.className = `flow-obstacle flow-obstacle--${floater.kind}`;
+    obstacle.dataset.side = side;
+    obstacle.dataset.signature = signature;
+    obstacle.style.width = `${size}px`;
+    obstacle.style.height = `${size}px`;
+    obstacle.style.marginTop = `${Math.round(verticalOffset)}px`;
+    obstacle.style.shapeOutside = `circle(${Math.round(size / 2)}px at 50% 50%)`;
+    obstacle.style.webkitShapeOutside = obstacle.style.shapeOutside;
+
+    if (movedToNewTarget) {
+      match.token.parentNode.insertBefore(obstacle, match.token);
+    }
+
+    if (movedToNewTarget || layoutChanged) {
+      this.scheduleSolve();
+    }
+  }
+
+  removeFloaterObstacle(floaterId) {
+    const obstacle = this.floaterObstacles.get(floaterId);
+    if (!obstacle) {
+      return;
+    }
+
+    obstacle.remove();
+    this.floaterObstacles.delete(floaterId);
+    this.scheduleSolve();
   }
 
   measureAnchor(anchorState, height) {
@@ -308,6 +449,7 @@ class SoakScene {
   }
 
   solve() {
+    this.lastSolveAt = performance.now();
     for (const anchor of this.anchorConfigs) {
       const state = this.anchorState.get(anchor.id);
       if (!state) {
@@ -400,6 +542,10 @@ class FloatingOrnaments {
     document.addEventListener("pointerup", (event) => this.onPointerUp(event));
   }
 
+  getStageById(stageId) {
+    return this.stages.find((entry) => entry.id === stageId) || null;
+  }
+
   createDragProxy(kind) {
     if (this.dragProxy) {
       this.dragProxy.remove();
@@ -450,7 +596,7 @@ class FloatingOrnaments {
   }
 
   spawn(kind, stageId, x, y, options = {}) {
-    const stage = this.stages.find((entry) => entry.id === stageId);
+    const stage = this.getStageById(stageId);
     if (!stage) {
       return null;
     }
@@ -481,6 +627,7 @@ class FloatingOrnaments {
     stage.layer.append(element);
     this.floaters.push(floater);
     this.placeFloater(floater);
+    this.syncFloaterWithScene(floater, true);
     return floater;
   }
 
@@ -512,6 +659,25 @@ class FloatingOrnaments {
     }
   }
 
+  syncFloaterWithScene(floater, force = false) {
+    const stage = this.getStageById(floater.stageId);
+    if (!stage || !stage.scene) {
+      return;
+    }
+
+    const movedEnough =
+      !floater.lastObstacleSync ||
+      floater.lastObstacleSync.stageId !== floater.stageId ||
+      Math.hypot(floater.lastObstacleSync.x - floater.x, floater.lastObstacleSync.y - floater.y) > 14;
+
+    if (!force && !movedEnough) {
+      return;
+    }
+
+    stage.scene.updateFloaterObstacle(floater);
+    floater.lastObstacleSync = { x: floater.x, y: floater.y, stageId: floater.stageId };
+  }
+
   onPointerMove(event) {
     if (!this.dragState) {
       return;
@@ -533,7 +699,9 @@ class FloatingOrnaments {
     }
 
     if (floater.stageId !== match.id) {
-      const nextStage = this.stages.find((entry) => entry.id === match.id);
+      const previousStage = this.getStageById(floater.stageId);
+      previousStage?.scene?.removeFloaterObstacle(floater.id);
+      const nextStage = this.getStageById(match.id);
       nextStage.layer.append(floater.element);
       floater.stageId = match.id;
     }
@@ -545,6 +713,7 @@ class FloatingOrnaments {
     floater.y = clamp(event.clientY - match.rect.top - this.dragState.offsetY, 0, match.rect.height - height);
     floater.angle = clamp(floater.angle + randomBetween(-1.2, 1.2), -18, 18);
     this.placeFloater(floater);
+    this.syncFloaterWithScene(floater, true);
   }
 
   onPointerUp(event) {
@@ -571,6 +740,7 @@ class FloatingOrnaments {
       floater.element.classList.remove("is-dragging");
       floater.vx = randomBetween(-96, 96);
       floater.vy = randomBetween(-84, 84);
+      this.syncFloaterWithScene(floater, true);
     }
 
     if (this.dragProxy) {
@@ -590,7 +760,7 @@ class FloatingOrnaments {
         continue;
       }
 
-      const stage = this.stages.find((entry) => entry.id === floater.stageId);
+      const stage = this.getStageById(floater.stageId);
       if (!stage) {
         continue;
       }
@@ -626,6 +796,7 @@ class FloatingOrnaments {
       }
 
       this.placeFloater(floater);
+      this.syncFloaterWithScene(floater);
     }
 
     requestAnimationFrame((nextTime) => this.tick(nextTime));
@@ -703,8 +874,8 @@ const paperScene = new SoakScene({
 const floaters = new FloatingOrnaments({
   paletteRoot: document.getElementById("floaterPalette"),
   stages: [
-    { id: "ad", layer: document.getElementById("adMotion") },
-    { id: "paper", layer: document.getElementById("paperMotion") },
+    { id: "ad", layer: document.getElementById("adMotion"), scene: adScene },
+    { id: "paper", layer: document.getElementById("paperMotion"), scene: paperScene },
   ],
 });
 
