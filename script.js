@@ -92,6 +92,18 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
+function getObstacleShape(kind, size) {
+  if (kind === "star" || kind === "spark") {
+    return "polygon(50% 0%, 64% 36%, 100% 50%, 64% 64%, 50% 100%, 36% 64%, 0% 50%, 36% 36%)";
+  }
+
+  if (kind === "hammer") {
+    return "polygon(18% 10%, 82% 10%, 82% 34%, 58% 34%, 58% 100%, 42% 100%, 42% 34%, 18% 34%)";
+  }
+
+  return `circle(${Math.round(size / 2)}px at 50% 50%)`;
+}
+
 class SoakScene {
   constructor(config) {
     this.flow = config.flow;
@@ -362,7 +374,7 @@ class SoakScene {
     obstacle.style.width = `${size}px`;
     obstacle.style.height = `${size}px`;
     obstacle.style.marginTop = `${Math.round(verticalOffset)}px`;
-    obstacle.style.shapeOutside = `circle(${Math.round(size / 2)}px at 50% 50%)`;
+    obstacle.style.shapeOutside = getObstacleShape(floater.kind, size);
     obstacle.style.webkitShapeOutside = obstacle.style.shapeOutside;
 
     if (movedToNewTarget) {
@@ -383,6 +395,15 @@ class SoakScene {
     obstacle.remove();
     this.floaterObstacles.delete(floaterId);
     this.scheduleSolve();
+  }
+
+  getFloaterObstacleRect(floaterId) {
+    const obstacle = this.floaterObstacles.get(floaterId);
+    if (!obstacle || !obstacle.isConnected) {
+      return null;
+    }
+
+    return obstacle.getBoundingClientRect();
   }
 
   measureAnchor(anchorState, height) {
@@ -632,14 +653,34 @@ class FloatingOrnaments {
   }
 
   placeFloater(floater) {
-    const stage = this.stages.find((entry) => entry.id === floater.stageId);
+    const stage = this.getStageById(floater.stageId);
     if (!stage) {
       return;
     }
 
     const rect = stage.layer.getBoundingClientRect();
     floater.bounds = rect;
-    floater.element.style.transform = `translate(${floater.x}px, ${floater.y}px) rotate(${floater.angle}deg)`;
+
+    let renderX = floater.x;
+    let renderY = floater.y;
+
+    if (!floater.dragging && stage.scene) {
+      const obstacleRect = stage.scene.getFloaterObstacleRect(floater.id);
+      if (obstacleRect) {
+        renderX =
+          obstacleRect.left -
+          rect.left +
+          (obstacleRect.width - floater.element.offsetWidth) / 2;
+        renderY =
+          obstacleRect.top -
+          rect.top +
+          (obstacleRect.height - floater.element.offsetHeight) / 2;
+      }
+    }
+
+    floater.renderX = renderX;
+    floater.renderY = renderY;
+    floater.element.style.transform = `translate(${renderX}px, ${renderY}px) rotate(${floater.angle}deg)`;
   }
 
   seed() {
