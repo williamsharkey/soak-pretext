@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Soak Pretext Demo</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="ambient-grid" aria-hidden="true"></div>
+    <header class="hero">
+      <p class="eyebrow">Pretext / Soak Elements Demo</p>
+      <h1>Elastic anchors inside drifting editorial text.</h1>
+      <p class="lede">
+        Dynamic objects bounce through the page while soak elements expand and contract
+        to keep selected words snapped to later columns or paper-like pages.
+      </p>
+      <div class="hero-notes">
+        <span>Drag stars, moons, sparks, or hammers into either scene.</span>
+        <span>Toggle the soak locks and watch the text renegotiate itself.</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="scene scene-ad" aria-labelledby="ad-title">
+        <aside class="scene-sidebar">
+          <div class="control-block">
+            <p class="block-heading">Column Selector</p>
+            <div class="segmented" id="columnSelector" aria-label="Column count">
+              <button class="segment" type="button" data-columns="1">1</button>
+              <button class="segment" type="button" data-columns="2">2</button>
+              <button class="segment" type="button" data-columns="3">3</button>
+              <button class="segment is-active" type="button" data-columns="4">4</button>
+            </div>
+            <p class="microcopy">
+              Locks target the opening word of columns 2, 3, and 4. The associated soakers
+              stretch just enough to preserve those starts.
+            </p>
+          </div>
+
+          <div class="control-block">
+            <p class="block-heading">Motion Palette</p>
+            <div class="palette" id="floaterPalette">
+              <button class="palette-item" type="button" data-kind="moon">
+                <span class="palette-icon">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M31 6c-8.6 1.2-15.2 8.7-15.2 17.7C15.8 33.8 24 42 34.1 42c3 0 5.8-.7 8.2-2-2.5 1-5.4 1.4-8.3.9C23.8 39 16 30.5 16 20.4c0-5.7 2.5-10.8 6.5-14.4A19.7 19.7 0 0 1 31 6Z"></path>
+                  </svg>
+                </span>
+                <span class="palette-copy">
+                  <strong>Moon</strong>
+                  <small>Crescent floater</small>
+                </span>
+              </button>
+              <button class="palette-item" type="button" data-kind="star">
+                <span class="palette-icon">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="m24 4 4.9 14.4L44 24l-15.1 5.6L24 44l-4.9-14.4L4 24l15.1-5.6L24 4Z"></path>
+                  </svg>
+                </span>
+                <span class="palette-copy">
+                  <strong>Star</strong>
+                  <small>Eight-point spark</small>
+                </span>
+              </button>
+              <button class="palette-item" type="button" data-kind="spark">
+                <span class="palette-icon">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M24 6c1.6 9.8 8.2 16.4 18 18-9.8 1.6-16.4 8.2-18 18-1.6-9.8-8.2-16.4-18-18 9.8-1.6 16.4-8.2 18-18Z"></path>
+                  </svg>
+                </span>
+                <span class="palette-copy">
+                  <strong>Spark</strong>
+                  <small>Crosswind glint</small>
+                </span>
+              </button>
+              <button class="palette-item" type="button" data-kind="hammer">
+                <span class="palette-icon emoji-icon" aria-hidden="true">🔨</span>
+                <span class="palette-copy">
+                  <strong>Hammer</strong>
+                  <small>Iconic throwback</small>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="control-block">
+            <p class="block-heading">Soak Locks</p>
+            <div class="soak-cards" id="adAnchorControls"></div>
+          </div>
+        </aside>
+
+        <div class="scene-stage">
+          <div class="scene-heading">
+            <div>
+              <p class="scene-kicker">Scene A</p>
+              <h2 id="ad-title">Launch copy across responsive columns</h2>
+            </div>
+            <button class="ghost-button" id="skylineToggle" type="button">Skyline Motion: On</button>
+          </div>
+
+          <div class="ad-stage-shell" id="adStageShell" data-skyline="on">
+            <div class="column-guides" id="adGuides" aria-hidden="true"></div>
+            <div class="stage-clip" id="adStage">
+              <div class="skyline" aria-hidden="true"></div>
+              <div class="flow-layer editorial-flow" id="adFlow"></div>
+              <div class="motion-layer" id="adMotion"></div>
+            </div>
+            <div class="status-bar">
+              <span id="columnSummary">4 columns active</span>
+              <span>Drop palette items into the field and drag them to reroute the air.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene scene-paper" aria-labelledby="paper-title">
+        <aside class="scene-sidebar">
+          <div class="control-block">
+            <p class="block-heading">Page Locks</p>
+            <p class="microcopy">
+              Three faux paper pages share one flow. When a page lock is active, its soak
+              reserve grows until the target heading becomes the first line on that page.
+            </p>
+            <div class="soak-cards" id="paperAnchorControls"></div>
+          </div>
+
+          <div class="control-block">
+            <p class="block-heading">Mode Notes</p>
+            <p class="microcopy">
+              The paper scene keeps the same core mechanism as the ad scene, but the surface
+              behaves more like paginated proof sheets with diagrams and math scraps beneath.
+            </p>
+            <button class="ghost-button" id="paperJolt" type="button">Jolt Floating Objects</button>
+          </div>
+        </aside>
+
+        <div class="scene-stage">
+          <div class="scene-heading">
+            <div>
+              <p class="scene-kicker">Scene B</p>
+              <h2 id="paper-title">Three-page proof sheet with page-start soaking</h2>
+            </div>
+            <div class="page-badge">3 paper pages</div>
+          </div>
+
+          <div class="paper-stage-shell" id="paperStageShell">
+            <div class="paper-pages" aria-hidden="true">
+              <article class="paper-sheet">
+                <div class="sheet-label">p.01</div>
+                <div class="sheet-note">
+                  <span>Integral study</span>
+                  <span class="formula">∫Ω s(x) dx = λ</span>
+                </div>
+              </article>
+              <article class="paper-sheet">
+                <div class="sheet-label">p.02</div>
+                <div class="sheet-note diagram-note">
+                  <span>Commutative sketch</span>
+                  <span class="formula">A → B → C</span>
+                </div>
+              </article>
+              <article class="paper-sheet">
+                <div class="sheet-label">p.03</div>
+                <div class="sheet-note">
+                  <span>Boundary condition</span>
+                  <span class="formula">dσ/dt = 0</span>
+                </div>
+              </article>
+            </div>
+            <div class="flow-layer paper-flow" id="paperFlow"></div>
+            <div class="motion-layer" id="paperMotion"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-note">
+      <p>
+        Soak items are visible buffers inside the stream. They are not fixed spacers; they are
+        negotiated surfaces that change size in response to the later anchor you decide to protect.
+      </p>
+    </footer>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
